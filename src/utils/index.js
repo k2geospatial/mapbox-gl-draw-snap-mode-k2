@@ -212,6 +212,9 @@ const calcLayerDistances = (lngLat, layer) => {
         nearestPoint = nearestPointOnLine(lines, P);
     }
 
+    if (!nearestPoint) {
+        return
+    }
     const [lng, lat] = nearestPoint.geometry.coordinates;
 
     let segmentIndex = nearestPoint.properties.index;
@@ -226,18 +229,29 @@ const calcLayerDistances = (lngLat, layer) => {
 };
 
 function getFeatureWithNearestPoint(lineStrings, P) {
-    const nearestPointsOfEachFeature = lineStrings.map((feat) => ({
-        feature: feat,
-        point: nearestPointOnLine(feat, P),
-    }));
+    P = turfPoint(P)
+    const nearestPointsOfEachFeature = []
+    for (const lineString of lineStrings) {
+        let point
+        try {
+            point = nearestPointOnLine(lineString, P)
+        } catch (error) {
+            continue
+        }
+        nearestPointsOfEachFeature.push({
+            feature: lineString,
+            point: point
+        })            
+    }
 
     nearestPointsOfEachFeature.sort(
         (a, b) => a.point.properties.dist - b.point.properties.dist
     );
 
+    // will maybe return undefined properties
     return {
-        feature: nearestPointsOfEachFeature[0].feature,
-        point: nearestPointsOfEachFeature[0].point,
+        feature: nearestPointsOfEachFeature[0]?.feature,
+        point: nearestPointsOfEachFeature[0]?.point,
     };
 }
 
@@ -248,6 +262,10 @@ const calcClosestLayer = (lngLat, layers) => {
     layers.forEach((layer, index) => {
         // find the closest latlng, segment and the distance of this layer to the dragged marker latlng
         const results = calcLayerDistances(lngLat, layer);
+
+        if(!results){
+            return
+        }
 
         // save the info if it doesn't exist or if the distance is smaller than the previous one
         if (
